@@ -78,6 +78,12 @@ public abstract class TaskManager {
     public abstract void task(@Nonnull final Runnable runnable);
 
     /**
+     * Returns whether the current thread is an execution context that should be treated as synchronous for platform
+     * operations.
+     */
+    public abstract boolean isMainThread();
+
+    /**
      * Get the public ForkJoinPool.
      * - ONLY SUBMIT SHORT LIVED TASKS<br>
      * - DO NOT USE SLEEP/WAIT/LOCKS IN ANY SUBMITTED TASKS<br>

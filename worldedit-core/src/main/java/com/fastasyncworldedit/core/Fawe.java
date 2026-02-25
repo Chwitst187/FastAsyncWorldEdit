@@ -207,7 +207,14 @@ public class Fawe {
     }
 
     public static boolean isMainThread() {
-        return instance == null || instance.thread == Thread.currentThread();
+        if (instance == null) {
+            return true;
+        }
+        TaskManager taskManager = TaskManager.IMP;
+        if (taskManager != null) {
+            return taskManager.isMainThread();
+        }
+        return instance.thread == Thread.currentThread();
     }
 
     /**
