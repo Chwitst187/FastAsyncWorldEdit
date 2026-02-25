@@ -9,6 +9,7 @@ import javax.annotation.Nonnull;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class BukkitTaskManager extends TaskManager {
@@ -32,12 +33,20 @@ public class BukkitTaskManager extends TaskManager {
 
     @Override
     public int repeatAsync(@Nonnull final Runnable runnable, final int interval) {
-        return this.plugin.getServer().getScheduler().scheduleAsyncRepeatingTask(this.plugin, runnable, interval, interval);
+        try {
+            return this.plugin.getServer().getScheduler().scheduleAsyncRepeatingTask(this.plugin, runnable, interval, interval);
+        } catch (UnsupportedOperationException ignored) {
+            return scheduleFoliaAsyncRepeatingTask(runnable, interval);
+        }
     }
 
     @Override
     public void async(@Nonnull final Runnable runnable) {
-        this.plugin.getServer().getScheduler().runTaskAsynchronously(this.plugin, runnable).getTaskId();
+        try {
+            this.plugin.getServer().getScheduler().runTaskAsynchronously(this.plugin, runnable).getTaskId();
+        } catch (UnsupportedOperationException ignored) {
+            scheduleFoliaAsyncNow(runnable);
+        }
     }
 
     @Override
@@ -60,7 +69,11 @@ public class BukkitTaskManager extends TaskManager {
 
     @Override
     public void laterAsync(@Nonnull final Runnable runnable, final int delay) {
-        this.plugin.getServer().getScheduler().runTaskLaterAsynchronously(this.plugin, runnable, delay);
+        try {
+            this.plugin.getServer().getScheduler().runTaskLaterAsynchronously(this.plugin, runnable, delay);
+        } catch (UnsupportedOperationException ignored) {
+            scheduleFoliaAsyncDelayedTask(runnable, delay);
+        }
     }
 
     @Override
@@ -90,7 +103,12 @@ public class BukkitTaskManager extends TaskManager {
             Object globalRegionScheduler = getGlobalRegionScheduler();
             Method runDelayed = globalRegionScheduler.getClass()
                     .getMethod("runDelayed", Plugin.class, java.util.function.Consumer.class, long.class);
-            Object scheduledTask = runDelayed.invoke(globalRegionScheduler, this.plugin, new FoliaTaskConsumer(runnable), delay);
+            Object scheduledTask = runDelayed.invoke(
+                    globalRegionScheduler,
+                    this.plugin,
+                    new FoliaTaskConsumer(runnable),
+                    normalizeFoliaTickDelay(delay)
+            );
             storeFoliaTaskCancel(scheduledTask);
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException("Unable to schedule delayed sync task on Folia", e);
@@ -106,12 +124,72 @@ public class BukkitTaskManager extends TaskManager {
                     globalRegionScheduler,
                     this.plugin,
                     new FoliaTaskConsumer(runnable),
-                    interval,
-                    interval
+                    normalizeFoliaTickDelay(interval),
+                    normalizeFoliaTickDelay(interval)
             );
             return storeFoliaTaskCancel(scheduledTask);
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException("Unable to schedule repeating sync task on Folia", e);
+        }
+    }
+
+    private void scheduleFoliaAsyncNow(final Runnable runnable) {
+        try {
+            Object asyncScheduler = getAsyncScheduler();
+            Method runNow = asyncScheduler.getClass().getMethod("runNow", Plugin.class, java.util.function.Consumer.class);
+            Object scheduledTask = runNow.invoke(asyncScheduler, this.plugin, new FoliaTaskConsumer(runnable));
+            storeFoliaTaskCancel(scheduledTask);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Unable to schedule async task on Folia", e);
+        }
+    }
+
+    private void scheduleFoliaAsyncDelayedTask(final Runnable runnable, final long delay) {
+        try {
+            Object asyncScheduler = getAsyncScheduler();
+            Method runDelayed = asyncScheduler.getClass().getMethod(
+                    "runDelayed",
+                    Plugin.class,
+                    java.util.function.Consumer.class,
+                    long.class,
+                    TimeUnit.class
+            );
+            Object scheduledTask = runDelayed.invoke(
+                    asyncScheduler,
+                    this.plugin,
+                    new FoliaTaskConsumer(runnable),
+                    normalizeFoliaMillisDelay(delay),
+                    TimeUnit.MILLISECONDS
+            );
+            storeFoliaTaskCancel(scheduledTask);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Unable to schedule delayed async task on Folia", e);
+        }
+    }
+
+    private int scheduleFoliaAsyncRepeatingTask(final Runnable runnable, final long interval) {
+        try {
+            Object asyncScheduler = getAsyncScheduler();
+            Method runAtFixedRate = asyncScheduler.getClass().getMethod(
+                    "runAtFixedRate",
+                    Plugin.class,
+                    java.util.function.Consumer.class,
+                    long.class,
+                    long.class,
+                    TimeUnit.class
+            );
+            long normalizedDelay = normalizeFoliaMillisDelay(interval);
+            Object scheduledTask = runAtFixedRate.invoke(
+                    asyncScheduler,
+                    this.plugin,
+                    new FoliaTaskConsumer(runnable),
+                    normalizedDelay,
+                    normalizedDelay,
+                    TimeUnit.MILLISECONDS
+            );
+            return storeFoliaTaskCancel(scheduledTask);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Unable to schedule repeating async task on Folia", e);
         }
     }
 
@@ -136,6 +214,20 @@ public class BukkitTaskManager extends TaskManager {
         Server server = this.plugin.getServer();
         Method method = server.getClass().getMethod("getGlobalRegionScheduler");
         return method.invoke(server);
+    }
+
+    private Object getAsyncScheduler() throws ReflectiveOperationException {
+        Server server = this.plugin.getServer();
+        Method method = server.getClass().getMethod("getAsyncScheduler");
+        return method.invoke(server);
+    }
+
+    private long normalizeFoliaTickDelay(final long ticks) {
+        return Math.max(1L, ticks);
+    }
+
+    private long normalizeFoliaMillisDelay(final long ticks) {
+        return normalizeFoliaTickDelay(ticks) * 50L;
     }
 
     private record FoliaTaskConsumer(Runnable runnable) implements java.util.function.Consumer<Object> {
