@@ -21,7 +21,7 @@ package com.sk89q.worldedit.bukkit;
 
 import com.fastasyncworldedit.core.configuration.Caption;
 import com.fastasyncworldedit.core.configuration.Settings;
-import com.sk89q.worldedit.bukkit.util.FoliaEntityTask;
+import com.fastasyncworldedit.core.util.TaskManager;
 import com.sk89q.util.StringUtil;
 import com.sk89q.wepif.VaultResolver;
 import com.sk89q.worldedit.WorldEdit;
@@ -67,15 +67,12 @@ import org.enginehub.linbus.tree.LinCompoundTag;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 
 public class BukkitPlayer extends AbstractPlayerActor {
 
@@ -193,7 +190,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
             giveItem.run();
             return;
         }
-        FoliaEntityTask.execute(player, () -> {
+        TaskManager.taskManager().sync(() -> {
             giveItem.run();
             return null;
         });
@@ -266,57 +263,14 @@ public class BukkitPlayer extends AbstractPlayerActor {
         }
         org.bukkit.World finalWorld = world;
         //FAWE end
-        Location targetLocation = new Location(finalWorld, pos.x(), pos.y(), pos.z(), yaw, pitch);
-
-        CompletableFuture<Boolean> asyncTeleport = tryTeleportAsync(targetLocation);
-        if (asyncTeleport != null) {
-            try {
-                return Boolean.TRUE.equals(asyncTeleport.get());
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            } catch (ExecutionException e) {
-                throw new RuntimeException(e.getCause());
-            }
-        }
-
-        return FoliaEntityTask.execute(player, () -> player.teleport(targetLocation));
-    }
-
-    @Nullable
-    @SuppressWarnings("unchecked")
-    private CompletableFuture<Boolean> tryTeleportAsync(Location targetLocation) {
-        try {
-            for (Method method : player.getClass().getMethods()) {
-                if (!method.getName().equals("teleportAsync") || !Modifier.isPublic(method.getModifiers())) {
-                    continue;
-                }
-
-                Class<?>[] parameterTypes = method.getParameterTypes();
-                if (parameterTypes.length == 0 || !Location.class.equals(parameterTypes[0])) {
-                    continue;
-                }
-
-                Object result;
-                if (parameterTypes.length == 1) {
-                    result = method.invoke(player, targetLocation);
-                } else if (parameterTypes.length == 2
-                        && "org.bukkit.event.player.PlayerTeleportEvent$TeleportCause".equals(parameterTypes[1].getName())) {
-                    Object commandCause = Enum.valueOf((Class<Enum>) parameterTypes[1].asSubclass(Enum.class), "COMMAND");
-                    result = method.invoke(player, targetLocation, commandCause);
-                } else {
-                    continue;
-                }
-
-                if (result instanceof CompletableFuture) {
-                    return (CompletableFuture<Boolean>) result;
-                }
-            }
-
-            return null;
-        } catch (ReflectiveOperationException ignored) {
-            return null;
-        }
+        return TaskManager.taskManager().sync(() -> player.teleport(new Location(
+                finalWorld,
+                pos.x(),
+                pos.y(),
+                pos.z(),
+                yaw,
+                pitch
+        )));
     }
 
     @Override
@@ -336,10 +290,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public void setGameMode(GameMode gameMode) {
-        FoliaEntityTask.execute(player, () -> {
-            player.setGameMode(org.bukkit.GameMode.valueOf(gameMode.id().toUpperCase(Locale.ROOT)));
-            return null;
-        });
+        player.setGameMode(org.bukkit.GameMode.valueOf(gameMode.id().toUpperCase(Locale.ROOT)));
     }
 
     @Override
@@ -433,7 +384,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public boolean setLocation(com.sk89q.worldedit.util.Location location) {
-        return FoliaEntityTask.execute(player, () -> player.teleport(BukkitAdapter.adapt(location)));
+        return player.teleport(BukkitAdapter.adapt(location));
     }
 
     @Override
