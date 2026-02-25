@@ -66,6 +66,7 @@ import org.enginehub.linbus.tree.LinCompoundTag;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
@@ -163,7 +164,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
     public void giveItem(BaseItemStack itemStack) {
         final PlayerInventory inv = player.getInventory();
         ItemStack newItem = BukkitAdapter.adapt(itemStack);
-        TaskManager.taskManager().sync(() -> {
+        Runnable giveItem = () -> {
             if (itemStack.getType().id().equalsIgnoreCase(WorldEdit.getInstance().getConfiguration().wandItem)) {
                 inv.remove(newItem);
             }
@@ -184,8 +185,28 @@ public class BukkitPlayer extends AbstractPlayerActor {
                 }
             }
             player.updateInventory();
+        };
+        if (canAccessInventoryOnCurrentThread()) {
+            giveItem.run();
+            return;
+        }
+        TaskManager.taskManager().sync(() -> {
+            giveItem.run();
             return null;
         });
+    }
+
+    private boolean canAccessInventoryOnCurrentThread() {
+        if (Bukkit.isPrimaryThread()) {
+            return true;
+        }
+        try {
+            Method isOwnedByCurrentRegion = Bukkit.getServer().getClass()
+                    .getMethod("isOwnedByCurrentRegion", org.bukkit.entity.Entity.class);
+            return (boolean) isOwnedByCurrentRegion.invoke(Bukkit.getServer(), player);
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
     }
     //FAWE end
 
