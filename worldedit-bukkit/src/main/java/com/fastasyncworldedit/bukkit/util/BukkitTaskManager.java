@@ -50,14 +50,6 @@ public class BukkitTaskManager extends TaskManager {
     }
 
     @Override
-    public boolean isMainThread() {
-        if (Bukkit.isPrimaryThread()) {
-            return true;
-        }
-        return isFoliaGlobalTickThread();
-    }
-
-    @Override
     public void task(@Nonnull final Runnable runnable) {
         try {
             this.plugin.getServer().getScheduler().runTask(this.plugin, runnable).getTaskId();
@@ -204,14 +196,11 @@ public class BukkitTaskManager extends TaskManager {
     private int storeFoliaTaskCancel(final Object scheduledTask) {
         try {
             Method cancel = scheduledTask.getClass().getMethod("cancel");
-            if (!cancel.canAccess(scheduledTask)) {
-                cancel.setAccessible(true);
-            }
             int taskId = foliaTaskCounter.decrementAndGet();
             foliaTaskCancels.put(taskId, () -> {
                 try {
                     cancel.invoke(scheduledTask);
-                } catch (ReflectiveOperationException | RuntimeException e) {
+                } catch (ReflectiveOperationException e) {
                     throw new RuntimeException("Unable to cancel Folia task", e);
                 }
             });
@@ -231,15 +220,6 @@ public class BukkitTaskManager extends TaskManager {
         Server server = this.plugin.getServer();
         Method method = server.getClass().getMethod("getAsyncScheduler");
         return method.invoke(server);
-    }
-
-    private boolean isFoliaGlobalTickThread() {
-        try {
-            Method method = Bukkit.class.getMethod("isGlobalTickThread");
-            return Boolean.TRUE.equals(method.invoke(null));
-        } catch (ReflectiveOperationException ignored) {
-            return false;
-        }
     }
 
     private long normalizeFoliaTickDelay(final long ticks) {
