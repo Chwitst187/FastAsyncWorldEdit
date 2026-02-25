@@ -29,7 +29,6 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
@@ -376,7 +375,7 @@ public final class PaperweightPlatformAdapter extends NMSAdapter {
         if (lockHolder.chunkLock == null) {
             return;
         }
-        MinecraftServer.getServer().execute(() -> {
+        TaskManager.taskManager().task(() -> {
             try {
                 ChunkPos pos = levelChunk.getPos();
                 ClientboundLevelChunkWithLightPacket packet;

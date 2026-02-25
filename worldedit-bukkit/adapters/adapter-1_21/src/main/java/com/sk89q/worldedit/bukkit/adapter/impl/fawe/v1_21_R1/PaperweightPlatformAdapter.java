@@ -25,7 +25,6 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.IdMap;
 import net.minecraft.core.Registry;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerLevel;
@@ -353,7 +352,7 @@ public final class PaperweightPlatformAdapter extends NMSAdapter {
         if (lockHolder.chunkLock == null) {
             return;
         }
-        MinecraftServer.getServer().execute(() -> {
+        TaskManager.taskManager().task(() -> {
             try {
                 ClientboundLevelChunkWithLightPacket packet;
                 if (PaperLib.isPaper()) {
