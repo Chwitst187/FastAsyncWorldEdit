@@ -195,9 +195,9 @@ public class PaperweightGetBlocks extends AbstractBukkitGetBlocks<ServerLevel, L
 
     @Override
     public FaweCompoundTag tile(final int x, final int y, final int z) {
-        BlockEntity blockEntity = getChunk().getBlockEntity(new BlockPos((x & 15) + (
-                chunkX << 4), y, (z & 15) + (
-                chunkZ << 4)));
+        BlockPos blockPos = new BlockPos((x & 15) + (chunkX << 4), y, (z & 15) + (chunkZ << 4));
+        // Avoid LevelChunk#getBlockEntity(...) here: on Folia async command threads, getCurrentWorldData() can be null.
+        BlockEntity blockEntity = getChunk().getBlockEntities().get(blockPos);
         if (blockEntity == null) {
             return null;
         }
