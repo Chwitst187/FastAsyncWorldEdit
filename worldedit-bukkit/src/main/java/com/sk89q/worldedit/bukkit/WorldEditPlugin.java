@@ -457,7 +457,11 @@ public class WorldEditPlugin extends JavaPlugin {
         if (config != null) {
             config.unload();
         }
-        this.getServer().getScheduler().cancelTasks(this);
+        try {
+            this.getServer().getScheduler().cancelTasks(this);
+        } catch (UnsupportedOperationException ignored) {
+            // Folia does not support legacy scheduler cancellation for all task types.
+        }
     }
 
     /**
