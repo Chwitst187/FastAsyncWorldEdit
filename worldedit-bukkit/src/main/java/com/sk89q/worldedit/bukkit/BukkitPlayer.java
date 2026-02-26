@@ -21,7 +21,7 @@ package com.sk89q.worldedit.bukkit;
 
 import com.fastasyncworldedit.core.configuration.Caption;
 import com.fastasyncworldedit.core.configuration.Settings;
-import com.fastasyncworldedit.core.util.TaskManager;
+import com.sk89q.worldedit.bukkit.util.FoliaEntityTask;
 import com.sk89q.util.StringUtil;
 import com.sk89q.wepif.VaultResolver;
 import com.sk89q.worldedit.WorldEdit;
@@ -190,7 +190,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
             giveItem.run();
             return;
         }
-        TaskManager.taskManager().sync(() -> {
+        FoliaEntityTask.execute(player, () -> {
             giveItem.run();
             return null;
         });
@@ -263,7 +263,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
         }
         org.bukkit.World finalWorld = world;
         //FAWE end
-        return TaskManager.taskManager().sync(() -> player.teleport(new Location(
+        return FoliaEntityTask.execute(player, () -> player.teleport(new Location(
                 finalWorld,
                 pos.x(),
                 pos.y(),
@@ -290,7 +290,10 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public void setGameMode(GameMode gameMode) {
-        player.setGameMode(org.bukkit.GameMode.valueOf(gameMode.id().toUpperCase(Locale.ROOT)));
+        FoliaEntityTask.execute(player, () -> {
+            player.setGameMode(org.bukkit.GameMode.valueOf(gameMode.id().toUpperCase(Locale.ROOT)));
+            return null;
+        });
     }
 
     @Override
@@ -384,7 +387,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public boolean setLocation(com.sk89q.worldedit.util.Location location) {
-        return player.teleport(BukkitAdapter.adapt(location));
+        return FoliaEntityTask.execute(player, () -> player.teleport(BukkitAdapter.adapt(location)));
     }
 
     @Override
