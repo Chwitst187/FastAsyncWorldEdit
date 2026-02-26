@@ -56,6 +56,7 @@ import org.enginehub.piston.CommandManager;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -135,7 +136,35 @@ public class BukkitServerInterface extends AbstractPlatform implements MultiUser
 
     @Override
     public int schedule(long delay, long period, Runnable task) {
-        return Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, task, delay, period);
+        try {
+            return Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, task, delay, period);
+        } catch (UnsupportedOperationException ignored) {
+            scheduleFoliaRepeatingTask(task, delay, period);
+            return -1;
+        }
+    }
+
+    private void scheduleFoliaRepeatingTask(final Runnable task, final long delay, final long period) {
+        try {
+            Method getGlobalRegionScheduler = server.getClass().getMethod("getGlobalRegionScheduler");
+            Object globalRegionScheduler = getGlobalRegionScheduler.invoke(server);
+            Method runAtFixedRate = globalRegionScheduler.getClass().getMethod(
+                    "runAtFixedRate",
+                    org.bukkit.plugin.Plugin.class,
+                    java.util.function.Consumer.class,
+                    long.class,
+                    long.class
+            );
+            runAtFixedRate.invoke(
+                    globalRegionScheduler,
+                    plugin,
+                    (java.util.function.Consumer<Object>) ignoredTask -> task.run(),
+                    Math.max(1L, delay),
+                    Math.max(1L, period)
+            );
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Unable to schedule repeating sync task on Folia", e);
+        }
     }
 
     @Override
