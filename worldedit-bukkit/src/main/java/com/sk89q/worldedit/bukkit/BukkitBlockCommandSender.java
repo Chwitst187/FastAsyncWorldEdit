@@ -195,14 +195,11 @@ public class BukkitBlockCommandSender extends AbstractCommandBlockActor {
                     // we can update eagerly
                     updateActive();
                 } else {
-                    // we should update it eventually
-                    Bukkit.getScheduler().callSyncMethod(
-                            plugin,
-                            () -> {
-                                updateActive();
-                                return null;
-                            }
-                    );
+                    // Folia-safe synchronization for eventually consistent updates.
+                    TaskManager.taskManager().sync(() -> {
+                        updateActive();
+                        return null;
+                    });
                 }
                 return active;
             }
