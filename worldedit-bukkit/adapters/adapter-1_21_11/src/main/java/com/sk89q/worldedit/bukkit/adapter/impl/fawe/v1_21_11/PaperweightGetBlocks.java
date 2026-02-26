@@ -721,10 +721,20 @@ public class PaperweightGetBlocks extends AbstractBukkitGetBlocks<ServerLevel, L
                         final BlockPos pos = new BlockPos(x, y, z);
 
                         synchronized (nmsWorld) {
-                            BlockEntity tileEntity = nmsWorld.getBlockEntity(pos);
+                            BlockEntity tileEntity;
+                            try {
+                                tileEntity = nmsWorld.getBlockEntity(pos);
+                            } catch (NullPointerException ignored) {
+                                // Folia can invoke this from non-region threads where Level#getCurrentWorldData is null.
+                                tileEntity = nmsChunk.getBlockEntities().get(pos);
+                            }
                             if (tileEntity == null || tileEntity.isRemoved()) {
                                 nmsWorld.removeBlockEntity(pos);
-                                tileEntity = nmsWorld.getBlockEntity(pos);
+                                try {
+                                    tileEntity = nmsWorld.getBlockEntity(pos);
+                                } catch (NullPointerException ignored) {
+                                    tileEntity = nmsChunk.getBlockEntities().get(pos);
+                                }
                             }
                             if (tileEntity != null) {
                                 ValueInput input = createInput(nativeTag.linTag().toBuilder()
