@@ -92,7 +92,13 @@ public class PaperweightRegen extends Regenerator {
     @Override
     protected void runTasks(final BooleanSupplier shouldKeepTicking) {
         while (shouldKeepTicking.getAsBoolean()) {
-            if (!this.freshWorld.getChunkSource().pollTask()) {
+            try {
+                if (!this.freshWorld.getChunkSource().pollTask()) {
+                    return;
+                }
+            } catch (NullPointerException ignored) {
+                // Folia global tasks can execute without a current regionized world context.
+                // In that case, pollTask() is not safe to call and will throw from NMS internals.
                 return;
             }
         }
