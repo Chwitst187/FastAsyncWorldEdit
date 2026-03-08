@@ -72,7 +72,9 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 public class BukkitPlayer extends AbstractPlayerActor {
 
@@ -263,14 +265,32 @@ public class BukkitPlayer extends AbstractPlayerActor {
         }
         org.bukkit.World finalWorld = world;
         //FAWE end
-        return FoliaEntityTask.execute(player, () -> player.teleport(new Location(
-                finalWorld,
-                pos.x(),
-                pos.y(),
-                pos.z(),
-                yaw,
-                pitch
-        )));
+        Location targetLocation = new Location(finalWorld, pos.x(), pos.y(), pos.z(), yaw, pitch);
+
+        CompletableFuture<Boolean> asyncTeleport = tryTeleportAsync(targetLocation);
+        if (asyncTeleport != null) {
+            try {
+                return Boolean.TRUE.equals(asyncTeleport.get());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e.getCause());
+            }
+        }
+
+        return FoliaEntityTask.execute(player, () -> player.teleport(targetLocation));
+    }
+
+    @Nullable
+    @SuppressWarnings("unchecked")
+    private CompletableFuture<Boolean> tryTeleportAsync(Location targetLocation) {
+        try {
+            Method teleportAsync = player.getClass().getMethod("teleportAsync", Location.class);
+            return (CompletableFuture<Boolean>) teleportAsync.invoke(player, targetLocation);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
     }
 
     @Override
