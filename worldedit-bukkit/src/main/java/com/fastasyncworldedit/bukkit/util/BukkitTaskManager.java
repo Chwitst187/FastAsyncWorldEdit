@@ -204,11 +204,14 @@ public class BukkitTaskManager extends TaskManager {
     private int storeFoliaTaskCancel(final Object scheduledTask) {
         try {
             Method cancel = scheduledTask.getClass().getMethod("cancel");
+            if (!cancel.canAccess(scheduledTask)) {
+                cancel.setAccessible(true);
+            }
             int taskId = foliaTaskCounter.decrementAndGet();
             foliaTaskCancels.put(taskId, () -> {
                 try {
                     cancel.invoke(scheduledTask);
-                } catch (ReflectiveOperationException e) {
+                } catch (ReflectiveOperationException | RuntimeException e) {
                     throw new RuntimeException("Unable to cancel Folia task", e);
                 }
             });
