@@ -67,6 +67,7 @@ import org.enginehub.linbus.tree.LinCompoundTag;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
@@ -286,8 +287,33 @@ public class BukkitPlayer extends AbstractPlayerActor {
     @SuppressWarnings("unchecked")
     private CompletableFuture<Boolean> tryTeleportAsync(Location targetLocation) {
         try {
-            Method teleportAsync = player.getClass().getMethod("teleportAsync", Location.class);
-            return (CompletableFuture<Boolean>) teleportAsync.invoke(player, targetLocation);
+            for (Method method : player.getClass().getMethods()) {
+                if (!method.getName().equals("teleportAsync") || !Modifier.isPublic(method.getModifiers())) {
+                    continue;
+                }
+
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (parameterTypes.length == 0 || !Location.class.equals(parameterTypes[0])) {
+                    continue;
+                }
+
+                Object result;
+                if (parameterTypes.length == 1) {
+                    result = method.invoke(player, targetLocation);
+                } else if (parameterTypes.length == 2
+                        && "org.bukkit.event.player.PlayerTeleportEvent$TeleportCause".equals(parameterTypes[1].getName())) {
+                    Object commandCause = Enum.valueOf((Class<Enum>) parameterTypes[1].asSubclass(Enum.class), "COMMAND");
+                    result = method.invoke(player, targetLocation, commandCause);
+                } else {
+                    continue;
+                }
+
+                if (result instanceof CompletableFuture) {
+                    return (CompletableFuture<Boolean>) result;
+                }
+            }
+
+            return null;
         } catch (ReflectiveOperationException ignored) {
             return null;
         }
