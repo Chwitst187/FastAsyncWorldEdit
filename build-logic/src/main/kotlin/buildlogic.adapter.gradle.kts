@@ -11,6 +11,11 @@ plugins {
 paperweight {
     injectPaperRepository = false
     reobfArtifactConfiguration = io.papermc.paperweight.userdev.ReobfArtifactConfiguration.REOBF_PRODUCTION
+    // Codebook/Mache tooling is not yet consistently compatible with Java 25 across environments.
+    // Keep adapter setup on Java 21 while leaving the rest of the build toolchain unchanged.
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 repositories {
