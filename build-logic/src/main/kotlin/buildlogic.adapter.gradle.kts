@@ -19,6 +19,7 @@ repositories {
         url = uri("https://repo.papermc.io/repository/maven-public/")
         content {
             excludeModule("io.papermc.paper", "dev-bundle")
+            excludeModule("io.papermc.codebook", "codebook-cli")
         }
     }
     maven {
