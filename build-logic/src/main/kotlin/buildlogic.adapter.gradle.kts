@@ -26,6 +26,7 @@ repositories {
         url = uri("https://maven.enginehub.org/repo/")
         content {
             excludeModule("io.papermc.paper", "dev-bundle")
+            excludeModule("io.papermc.codebook", "codebook-cli")
         }
     }
     maven {
