@@ -36,6 +36,7 @@ import com.sk89q.worldedit.blocks.BaseItem;
 import com.sk89q.worldedit.blocks.BaseItemStack;
 import com.sk89q.worldedit.bukkit.adapter.BukkitImplAdapter;
 import com.sk89q.worldedit.bukkit.adapter.UnsupportedVersionEditException;
+import com.sk89q.worldedit.bukkit.util.FoliaLocationTask;
 import com.sk89q.worldedit.entity.Player;
 import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.internal.util.LogManagerCompat;
@@ -511,8 +512,12 @@ public class BukkitWorld extends AbstractWorld {
     //FAWE start
     @Override
     public Collection<BaseItemStack> getBlockDrops(BlockVector3 position) {
-        return getWorld().getBlockAt(position.x(), position.y(), position.z()).getDrops().stream()
-                .map(BukkitAdapter::adapt).collect(Collectors.toList());
+        final World world = getWorld();
+        return FoliaLocationTask.execute(world, position.x(), position.y(), position.z(), () ->
+                world.getBlockAt(position.x(), position.y(), position.z()).getDrops().stream()
+                        .map(BukkitAdapter::adapt)
+                        .collect(Collectors.toList())
+        );
     }
     //FAWE end
 
