@@ -5,6 +5,7 @@ import com.fastasyncworldedit.core.queue.IChunkCache;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.implementation.SingleThreadQueueExtent;
 import com.fastasyncworldedit.core.util.TaskManager;
+import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.bukkit.BukkitWorld;
@@ -108,6 +109,15 @@ public abstract class Regenerator {
             final long startTime = System.nanoTime();
             runTasks(() -> System.nanoTime() - startTime < timeoutPerTick);
         }, 1);
+        final Extent writeTarget;
+        if (!TaskManager.taskManager().isMainThread() && target instanceof EditSession editSession) {
+            // Folia/Paper region threading requires world reads/writes to occur on the owning region thread.
+            // External logging extents (e.g. CoreProtect WE hooks) may perform direct Bukkit world reads here,
+            // which is unsafe from FAWE async worker threads. Bypass wrappers in this context.
+            writeTarget = editSession.getBypassAll();
+        } else {
+            writeTarget = target;
+        }
         //Setting Blocks
         boolean genbiomes = options.shouldRegenBiomes();
         boolean hasBiome = options.hasBiomeType();
@@ -125,7 +135,7 @@ public abstract class Regenerator {
                 return source.getBiome(vec);
             });
         }
-        target.setBlocks(region, pattern);
+        writeTarget.setBlocks(region, pattern);
         TaskManager.taskManager().cancel(taskId);
     }
 
