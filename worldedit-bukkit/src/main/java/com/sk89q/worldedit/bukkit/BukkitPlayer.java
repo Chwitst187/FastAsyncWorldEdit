@@ -263,13 +263,13 @@ public class BukkitPlayer extends AbstractPlayerActor {
         }
         org.bukkit.World finalWorld = world;
         //FAWE end
-        return TaskManager.taskManager().sync(() -> player.teleport(new Location(
-                finalWorld,
-                pos.x(),
-                pos.y(),
-                pos.z(),
-                yaw,
-                pitch
+        return FoliaEntityTask.execute(player, () -> player.teleport(new Location(
+            finalWorld,
+            pos.x(),
+            pos.y(),
+            pos.z(),
+            yaw,
+            pitch
         )));
     }
 
@@ -384,7 +384,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public boolean setLocation(com.sk89q.worldedit.util.Location location) {
-        return player.teleport(BukkitAdapter.adapt(location));
+        return FoliaEntityTask.execute(player, () -> player.teleport(BukkitAdapter.adapt(location)));
     }
 
     @Override
