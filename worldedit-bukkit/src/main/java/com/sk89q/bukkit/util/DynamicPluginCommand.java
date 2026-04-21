@@ -20,6 +20,8 @@
 package com.sk89q.bukkit.util;
 
 import com.sk89q.minecraft.util.commands.CommandsManager;
+import com.sk89q.worldedit.bukkit.WorldEditPlugin;
+import com.sk89q.worldedit.bukkit.util.FoliaEntityTask;
 import com.sk89q.util.StringUtil;
 import com.sk89q.wepif.PermissionsResolverManager;
 import org.bukkit.OfflinePlayer;
@@ -27,6 +29,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginIdentifiableCommand;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Arrays;
@@ -59,6 +62,9 @@ public class DynamicPluginCommand extends org.bukkit.command.Command implements 
 
     @Override
     public boolean execute(CommandSender sender, String label, String[] args) {
+        if (WorldEditPlugin.getInstance().isOnFolia() && sender instanceof Player player) {
+            return FoliaEntityTask.execute(player, () -> owner.onCommand(sender, this, label, args)).join();
+        }
         return owner.onCommand(sender, this, label, args);
     }
 
@@ -89,6 +95,9 @@ public class DynamicPluginCommand extends org.bukkit.command.Command implements 
     @Override
     public List<String> tabComplete(CommandSender sender, String alias, String[] args) throws IllegalArgumentException {
         if (registeredWith instanceof CommandInspector) {
+            if (WorldEditPlugin.getInstance().isOnFolia() && sender instanceof Player player) {
+                return FoliaEntityTask.execute(player, () -> ((TabCompleter) owner).onTabComplete(sender, this, alias, args)).join();
+            }
             return ((TabCompleter) owner).onTabComplete(sender, this, alias, args);
         } else {
             return super.tabComplete(sender, alias, args);
