@@ -73,6 +73,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BukkitPlayer extends AbstractPlayerActor {
@@ -264,14 +265,19 @@ public class BukkitPlayer extends AbstractPlayerActor {
         }
         org.bukkit.World finalWorld = world;
         //FAWE end
-        return FoliaEntityTask.execute(player, () -> player.teleport(new Location(
-            finalWorld,
-            pos.x(),
-            pos.y(),
-            pos.z(),
-            yaw,
-            pitch
-        )));
+        Location location = new Location(finalWorld, pos.x(), pos.y(), pos.z(), yaw, pitch);
+        CompletableFuture<Boolean> result = FoliaEntityTask.execute(player, () -> teleportWithBestMethod(location));
+        return result.join();
+    }
+
+    @SuppressWarnings("unchecked")
+    private CompletableFuture<Boolean> teleportWithBestMethod(Location location) {
+        try {
+            Method teleportAsync = player.getClass().getMethod("teleportAsync", Location.class);
+            return (CompletableFuture<Boolean>) teleportAsync.invoke(player, location);
+        } catch (ReflectiveOperationException ignored) {
+            return CompletableFuture.completedFuture(player.teleport(location));
+        }
     }
 
     @Override
