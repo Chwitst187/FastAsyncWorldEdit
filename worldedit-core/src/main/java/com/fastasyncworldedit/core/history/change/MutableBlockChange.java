@@ -1,7 +1,12 @@
 package com.fastasyncworldedit.core.history.change;
 
+import com.fastasyncworldedit.core.Fawe;
+import com.fastasyncworldedit.core.queue.implementation.SingleThreadQueueExtent;
+import com.fastasyncworldedit.core.util.ExtentTraverser;
+import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.WorldEditException;
+import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.history.UndoContext;
 import com.sk89q.worldedit.history.change.Change;
 import com.sk89q.worldedit.world.storage.InvalidFormatException;
@@ -33,8 +38,9 @@ public class MutableBlockChange implements Change {
     }
 
     public void create(UndoContext context) {
+        Extent writeExtent = resolveWriteExtent(context);
         try {
-            context.getExtent().setBlock(x, y, z, BlockState.getFromOrdinal(ordinal));
+            writeExtent.setBlock(x, y, z, BlockState.getFromOrdinal(ordinal));
         } catch (RuntimeException e) {
             if (isKnownExternalLoggingFailure(e)) {
                 WorldEdit.logger.warn(
@@ -45,6 +51,16 @@ public class MutableBlockChange implements Change {
             }
             throw e;
         }
+    }
+
+    private static Extent resolveWriteExtent(UndoContext context) {
+        Extent extent = context.getExtent();
+        if (!Fawe.isMainThread() && extent instanceof EditSession editSession) {
+            SingleThreadQueueExtent queueExtent = new ExtentTraverser<>(editSession.getBypassAll())
+                    .findAndGet(SingleThreadQueueExtent.class);
+            return queueExtent != null ? queueExtent : editSession.getBypassAll();
+        }
+        return extent;
     }
 
     private static boolean isKnownExternalLoggingFailure(Throwable throwable) {
