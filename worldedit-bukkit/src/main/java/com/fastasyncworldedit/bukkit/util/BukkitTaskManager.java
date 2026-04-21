@@ -203,7 +203,7 @@ public class BukkitTaskManager extends TaskManager {
 
     private int storeFoliaTaskCancel(final Object scheduledTask) {
         try {
-            Method cancel = scheduledTask.getClass().getMethod("cancel");
+            Method cancel = resolveFoliaCancelMethod(scheduledTask);
             int taskId = foliaTaskCounter.decrementAndGet();
             foliaTaskCancels.put(taskId, () -> {
                 try {
@@ -216,6 +216,20 @@ public class BukkitTaskManager extends TaskManager {
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException("Unable to wire Folia task cancellation", e);
         }
+    }
+
+    private Method resolveFoliaCancelMethod(final Object scheduledTask) throws NoSuchMethodException {
+        Class<?> taskClass = scheduledTask.getClass();
+
+        for (Class<?> iface : taskClass.getInterfaces()) {
+            if ("io.papermc.paper.threadedregions.scheduler.ScheduledTask".equals(iface.getName())) {
+                return iface.getMethod("cancel");
+            }
+        }
+
+        Method cancel = taskClass.getDeclaredMethod("cancel");
+        cancel.setAccessible(true);
+        return cancel;
     }
 
     private Object getGlobalRegionScheduler() throws ReflectiveOperationException {
