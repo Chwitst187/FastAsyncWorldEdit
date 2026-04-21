@@ -4,6 +4,7 @@ import com.fastasyncworldedit.core.queue.IChunk;
 import com.fastasyncworldedit.core.queue.IChunkCache;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.implementation.SingleThreadQueueExtent;
+import com.fastasyncworldedit.core.util.ExtentTraverser;
 import com.fastasyncworldedit.core.util.TaskManager;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEditException;
@@ -114,7 +115,9 @@ public abstract class Regenerator {
             // Folia/Paper region threading requires world reads/writes to occur on the owning region thread.
             // External logging extents (e.g. CoreProtect WE hooks) may perform direct Bukkit world reads here,
             // which is unsafe from FAWE async worker threads. Bypass wrappers in this context.
-            writeTarget = editSession.getBypassAll();
+            SingleThreadQueueExtent queueExtent = new ExtentTraverser<>(editSession.getBypassAll())
+                    .findAndGet(SingleThreadQueueExtent.class);
+            writeTarget = queueExtent != null ? queueExtent : editSession.getBypassAll();
         } else {
             writeTarget = target;
         }
