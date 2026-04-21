@@ -52,6 +52,7 @@ import com.fastasyncworldedit.core.math.MutableBlockVector2;
 import com.fastasyncworldedit.core.math.MutableBlockVector3;
 import com.fastasyncworldedit.core.math.MutableVector3;
 import com.fastasyncworldedit.core.math.random.SimplexNoise;
+import com.fastasyncworldedit.core.queue.implementation.SingleThreadQueueExtent;
 import com.fastasyncworldedit.core.queue.implementation.preloader.Preloader;
 import com.fastasyncworldedit.core.util.ExtentTraverser;
 import com.fastasyncworldedit.core.util.MaskTraverser;
@@ -1423,17 +1424,28 @@ public class EditSession extends PassthroughExtent implements AutoCloseable {
     @Override
     public <B extends BlockStateHolder<B>> int replaceBlocks(Region region, Set<BaseBlock> filter, B replacement) throws
             MaxChangedBlocksException {
-        return this.changes = super.replaceBlocks(region, filter, replacement);
+        Extent writeExtent = resolveWriteExtentForAsyncBulkOperation();
+        return this.changes = writeExtent.replaceBlocks(region, filter, replacement);
     }
 
     @Override
     public int replaceBlocks(Region region, Set<BaseBlock> filter, Pattern pattern) throws MaxChangedBlocksException {
-        return this.changes = super.replaceBlocks(region, filter, pattern);
+        Extent writeExtent = resolveWriteExtentForAsyncBulkOperation();
+        return this.changes = writeExtent.replaceBlocks(region, filter, pattern);
     }
 
     @Override
     public int replaceBlocks(Region region, Mask mask, Pattern pattern) throws MaxChangedBlocksException {
-        return this.changes = super.replaceBlocks(region, mask, pattern);
+        Extent writeExtent = resolveWriteExtentForAsyncBulkOperation();
+        return this.changes = writeExtent.replaceBlocks(region, mask, pattern);
+    }
+
+    private Extent resolveWriteExtentForAsyncBulkOperation() {
+        if (!Fawe.isMainThread()) {
+            SingleThreadQueueExtent queueExtent = new ExtentTraverser<>(getBypassAll()).findAndGet(SingleThreadQueueExtent.class);
+            return queueExtent != null ? queueExtent : getBypassAll();
+        }
+        return this;
     }
 
     /**
